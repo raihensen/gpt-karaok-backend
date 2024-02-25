@@ -1,0 +1,16 @@
+.env*
+!.env*.example
+
+__pycache__
+.vscode
+
+
+~$*.pptx
+
+tmp
+test
+drafts
+
+template/markdown
+template/pptx/test
+template/topics/private
