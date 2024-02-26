@@ -2,12 +2,12 @@
 import os
 import json
 from typing import Literal
+from dataclasses import dataclass
+from datetime import datetime
+import uuid
+import urllib.parse
 import requests
 import shutil
-import urllib.parse
-from datetime import datetime
-from dataclasses import dataclass
-import uuid
 
 from lib.utils import *
 from lib.config import *

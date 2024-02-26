@@ -25,7 +25,7 @@ def parse_md_line(line: str):
 def process_slide_title(title: str):
 		match = re.match(r"^Folie \d+: (.*)$", title)
 		if match:
-				title = match.groups()[1]
+				title = match.groups()[0]
 		return title
 
 

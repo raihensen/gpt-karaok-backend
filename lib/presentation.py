@@ -19,3 +19,9 @@ class Presentation:
     pptx_path: Path | None = None
     # pptx: PptxPresentation | None
 
+    # DB connection
+    session_id: str | None = None
+    player_id: str | None = None
+    topic_id: str | None = None
+
+

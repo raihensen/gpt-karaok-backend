@@ -1,7 +1,6 @@
 
 from pptx import Presentation
 from pptx.util import Cm, Pt
-from PIL import UnidentifiedImageError
 
 from lib.google_images import GoogleImage
 from lib.utils import *
@@ -27,10 +26,14 @@ def make_pptx(pptx,
 							topic: str,
 							speaker: str,
 							contents: list,
-							title_font={"name": "Aptos", "size": 48},
-							speaker_font={"name": "Aptos", "size": 36},
-							slide_title_font={"name": "Aptos", "size": 36},
-							content_font={"name": "Aptos", "size": 20}):
+							title_font={},
+							speaker_font={},
+							slide_title_font={},
+							content_font={}):
+							# title_font={"name": "Aptos", "size": 48},
+							# speaker_font={"name": "Aptos", "size": 36},
+							# slide_title_font={"name": "Aptos", "size": 36},
+							# content_font={"name": "Aptos", "size": 20}):
 		
 		if pptx:
 				with open(pptx, "rb") as f:

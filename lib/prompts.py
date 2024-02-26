@@ -1,25 +1,10 @@
 
-
-import json
 import random
 from typing import Callable
 
 from openai import OpenAI
-from lib.google_images import google_image_search
-from lib.markdown import parse_md_outline
-
-from lib.openai_access import openai_request
-from lib.pptx_factory import make_pptx
-
-from pathlib import Path
 
 from lib.presentation import Presentation
-
-if __name__ == "__main__":
-    import sys, os
-    sys.path.append(str(Path(os.getcwd())))
-    sys.path.append(str(Path(os.getcwd()).parent))
-
 from lib.config import *
 from lib.utils import *
 
@@ -67,8 +52,8 @@ def generate_prompts(openai_client,
         ix = random_slide_numbers(a, sort=True)
         languages = random.sample(["nl", "sv", "es", "tr", "sk", "jp"], a)
         return {
-            "de": " ".join([f"On slide {i}, write {b} of the bullets in the language with ISO code '{lang}'." for i, lang in zip(ix, languages)]) + " Benutze nur das lateinische Alphabet.",
-            "en": " ".join([f"Schreibe auf Folie {i} bitte {b} der Stichpunkte auf der Sprache mit dem ISO-Code '{lang}'." for i, lang in zip(ix, languages)]) + " Use the latin alphabet only.",
+            "de": " ".join([f"Schreibe auf Folie {i} bitte {b} der Stichpunkte auf der Sprache mit dem ISO-Code '{lang}'." for i, lang in zip(ix, languages)]) + " Use the latin alphabet only.",
+            "en": " ".join([f"On slide {i}, write {b} of the bullets in the language with ISO code '{lang}'." for i, lang in zip(ix, languages)]) + " Benutze nur das lateinische Alphabet."
         }
 
     def prompt_wrong_topic(wrong_topics):

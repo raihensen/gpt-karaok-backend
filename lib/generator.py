@@ -16,11 +16,17 @@ from lib.utils import *
 from lib.config import *
 
 
+launch_queue = []
+
+PPTX_TEMPLATES = []
+
+
 def generate_presentations(speaker_names: list[str],
                            topic_pool: list[str],
                            language: str,
                            images: bool = True,
-                           launch: bool = False):
+                           launch_first: bool = False,
+                           launch_all: bool = False):
     openai_client = OpenAI()
 
     random.shuffle(speaker_names)
@@ -31,6 +37,8 @@ def generate_presentations(speaker_names: list[str],
                                      speaker_names=speaker_names,
                                      topic_pool=topic_pool,
                                      language=language)
+    
+    print(f"Generated prompts for {len(presentations)} presentation(s).")
 
     for i, presentation in enumerate(presentations):
         
@@ -44,7 +52,7 @@ def generate_presentations(speaker_names: list[str],
         # Image search
         presentation.images = []
         if images:
-            for i, slide in enumerate(contents):
+            for j, slide in enumerate(contents):
                 query = preprocess_query(f"{presentation.topic} {slide['title']}", language)
                 imgs, res, parameters = google_image_search(query=query, imgSize=None, safe="active", num_downloads=1)
                 
@@ -57,7 +65,7 @@ def generate_presentations(speaker_names: list[str],
                 img = imgs[0]
                 slide["img"] = img
                 presentation.images.append({
-                    "slide": i + 1,
+                    "slide": j + 1,
                     "image": img,
                     "search": {
                         "query": query,
@@ -66,20 +74,42 @@ def generate_presentations(speaker_names: list[str],
                     },
                     "all_images": imgs
                 })
+        
+        # Select random template
+        template_files = [f.name for f in os.scandir(PPTX_TEMPLATE_DIR) if f.is_file()]
+        presentation.pptx_template_path = PPTX_TEMPLATE_DIR / random.choice(template_files)
 
         # Generate pptx file
-        pptx_path = make_pptx(pptx=PPTX_TEMPLATE_DIR / "template-white-16-9.pptx",
+        pptx_path = make_pptx(pptx=presentation.pptx_template_path,
                               topic=presentation.topic,
                               speaker=presentation.speaker,
                               contents=contents)
         presentation.pptx_path = pptx_path
         print(f"Saved .pptx file to {pptx_path}.")
 
+        launch_queue.append(presentation)
+
         # When first presentation is ready, start slideshows in separate thread.
         # This way, the remaining presentations are generated in the background.
-        if launch and i == 0:
-            launch_thread = Thread(target=launch_presentations, args=(presentations))
-            launch_thread.run()
+        if i == 0 and (launch_first or launch_all):
+            launch_thread = Thread(target=launch_presentations, kwargs={
+                "presentations": presentations,
+                "launch_all": launch_all
+            })
+            launch_thread.start()
     
+
+def launch_presentations(presentations: list[Presentation], launch_all: bool):
+    ppt_exe = Path(os.environ.get('POWERPOINT_EXE_PATH'))
+
+    for i, presentation in enumerate(presentations):
+        # Launch slideshow in PowerPoint app
+        assert presentation.pptx_path is not None, f"Presentation #{i + 1} ({presentation.speaker}) cannot be launched."
+        cmd = f"{ppt_exe} /s \"{presentation.pptx_path}\""
+        print(f"Launching presentation #{i + 1} (Speaker: {presentation.speaker}) ...")
+        subprocess.run((cmd))
+
+        if not launch_all:
+            break
 
 

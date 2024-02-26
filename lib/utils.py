@@ -33,16 +33,3 @@ def sample_minimal_repitions(population, k):
         sample += random.sample(population, len(population))
     return sample + random.sample(population, k % size)
 
-
-def launch_presentations(presentations: list[Presentation]):
-    ppt_exe = Path(os.environ.get('POWERPOINT_EXE_PATH'))
-
-    print([(p.speaker, p.pptx_path) for p in presentations])
-
-    for i, presentation in enumerate(presentations):
-        # Launch slideshow in PowerPoint app
-        assert presentation.pptx_path is not None, f"Presentation #{i + 1} ({presentation.speaker}) cannot be launched."
-        cmd = f"{ppt_exe} /s \"{presentation.pptx_path}\""
-        print(f"Launching presentation #{i + 1} ({presentation.speaker}) ...")
-        subprocess.run((cmd))
-

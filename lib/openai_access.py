@@ -3,12 +3,6 @@ import json
 import uuid
 from openai import OpenAI, OpenAIError
 
-if __name__ == "__main__":
-    import os, sys
-    from pathlib import Path
-    sys.path.append(os.getcwd())
-    print(sys.path)
-
 from lib.config import *
 
 def openai_request(client, prompt, save_chat: bool = True):
