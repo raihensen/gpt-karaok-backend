@@ -112,7 +112,7 @@ def generate_prompts(presentations: list[Presentation],
             "de": "Rücke die Stichpunkte unnötig ein, bis zu 4 Level. Die Gruppierung soll keinen Sinn ergeben und optisch keinem wiederkehrenden Muster folgen.",
             "en": "Please indent the bullet points excessively, up to 4 levels. The grouping and indent level should not make any sense."
         }),
-        PromptStyleFlag(name="EXCESSIVE_INDENTS", definition={
+        PromptStyleFlag(name="KARAOKE", definition={
             "de": lambda: f"Ersetze die Stichpunkte von Folie {random_slide_number(start=3)} durch ein paar Zeilen eines sehr bekannten Songs, zu dem man gut mitsingen kann.",
             "en": lambda: f"Replace the bullets of slide {random_slide_number(start=3)} by a few lines of lyrics of a very famous song that is good to sing along.",
         }),
@@ -122,15 +122,21 @@ def generate_prompts(presentations: list[Presentation],
         ImageQueryStyleFlag(name="PINK", definition={"de": "pink", "en": "pink"}),
     ]
     
+    ROLEPLAY = SpeakerStyleFlag(name="ROLEPLAY", definition={
+        "en": lambda: f"Role play: Act like a {random.choice(['super hero', 'Fitness coach', 'time traveller born 200 years ago', 'beauty influencer', 'news announcer'])}.",
+        "de": lambda: f"Rollenspiel: Du bist ein*e {random.choice(['Superheld*in', 'Fitnesstrainer*in', 'Zeitreisende*r von vor 200 Jahren', 'Beauty-Influencer*in', 'Nachrichtensprecher*in'])}.",
+    })
     SPEAKER_STYLE_FLAGS = [
         SpeakerStyleFlag(name="IMITATION", definition={
             "en": "Starting on Slide 2, try to imitate a celebrity of your choice.",
             "de": "Fange ab Folie 2 an, beim Reden einen Promi deiner Wahl zu imitieren."
         }),
-        SpeakerStyleFlag(name="ROLEPLAY", definition={
-            "en": lambda: f"Role play: Act like a {random.choice(['super hero', 'time traveller born 200 years ago', 'beauty influencer', 'news announcer'])}.",
-            "de": lambda: f"Rollenspiel: Du bist ein*e {random.choice(['Superheld*in', 'Zeitreisende*r von vor 200 Jahren', 'Beauty-Influencer*in', 'Nachrichtensprecher*in'])}.",
+        SpeakerStyleFlag(name="SPEECHLESS", definition={
+            "en": "On slide 3 you suddenly lose your voice but continue moving your mouth.",
+            "de": "Verstumme auf Folie 3 plötzlich beim Reden, bewege den Mund aber weiter."
         }),
+        ROLEPLAY,
+        ROLEPLAY
     ]
 
     PROMPT = {
