@@ -5,7 +5,7 @@ from openai import OpenAI, OpenAIError
 
 from lib.config import *
 
-def openai_request(client, prompt, save_chat: bool = True):
+def openai_request(client, prompt, save_chat: bool = True, name: str = None):
     try:
         completion = client.chat.completions.create(
             model="gpt-3.5-turbo-0125",
@@ -14,7 +14,7 @@ def openai_request(client, prompt, save_chat: bool = True):
         answer = completion.choices[0].message.content
 
         if save_chat:
-            path = CHATS_DIR / f"openai-chat-{NOW()}-{uuid.uuid4()}.json"
+            path = CHATS_DIR / f"openai-chat-{NOW()}{'-' + name if name else ''}-{uuid.uuid4()}.json"
             json.dump({
                 "prompt": prompt,
                 "answer": answer

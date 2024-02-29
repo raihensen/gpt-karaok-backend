@@ -1,4 +1,6 @@
 
+import json
+import math
 import subprocess
 from pathlib import Path
 from threading import Thread
@@ -47,17 +49,42 @@ def generate_presentations(player_names: list[str],
     
     print(f"Generated prompts for {len(presentations)} presentation(s).")
 
-    # Send speaker instructions to API
     if players:
+        print(f"Accessing OpenAI for speaker instructions ...")
+        num_instructions_per_player = 3  # including one hard-coded
+        k = num_instructions_per_player - 1
+        num_instructions = math.ceil((k + 0.5) * len(presentations))
+        INSTRUCTION_PROMPT = {
+            "de": f'Wir spielen Powerpoint-Karaoke, d.h. der Vortragende hat die Folien noch nie gesehen. Ich suche kreative Ideen für Anweisungen an den Vortragenden bzgl. Vortragsstil oder überraschenden Aktionen während des Vortrags. Bitte gib {num_instructions} Ideen für solche Anweisungen. Antworte ausschließlich in Form einer JSON-Liste.'
+        }
+        OR = {"de": "ODER", "en": "OR"}
+        instruction_pool = json.loads(openai_request(openai_client, INSTRUCTION_PROMPT[language], save_chat=True, name="instructions"))
+        print(type(instruction_pool), instruction_pool)
+        if isinstance(instruction_pool, dict):
+            print("Converting response from dict to list ...")
+            instruction_pool = list(instruction_pool.values())
+        instruction_pool = random.sample(list(instruction_pool), k * len(presentations))
+
+        # Send speaker instructions to API
         print("Sending speaker instructions ...")
-        for player, presentation in tqdm(zip(players, presentations)):
+        for i, (player, presentation) in tqdm(enumerate(zip(players, presentations))):
+            player_instruction_choice = instruction_pool[i * k:(i + 1) * k]
+            player_instruction_choice += [presentation.speaker_instruction] if presentation.speaker_instruction else []
+            presentation.speaker_instruction = f" [{OR[language]}] ".join(player_instruction_choice)
             url = f"{os.getenv('FRONTEND_URL')}/api/session/{player['sessionId']}/player/{player['id']}/setStyleInstruction"
             res = requests.post(url, data={"styleInstruction": presentation.speaker_instruction} if presentation.speaker_instruction else {})
             if not res.ok:
                 res_data = res.json()
                 if "error" in res_data:
                     print(f"Error {res.status_code}: {res_data['error']['message']}")
-
+    else:
+        print("Speaker style instructions are disbaled without API access.")
+    
+    # for p in presentations:
+    #     print(p.speaker, p.topic)
+    #     print("Instructions: {p.speaker_instruction}")
+    #     print("-----\n" + p.prompt + "-----\n")
+    #     print()
         
     # Sample random template
     template_files = [f.name for f in os.scandir(PPTX_TEMPLATE_DIR) if f.is_file()]
@@ -69,7 +96,7 @@ def generate_presentations(player_names: list[str],
         
         print(f"Presentation #{i+1} ({presentation.speaker}): Accessing OpenAI ...")
         # OpenAI request
-        presentation.markdown = openai_request(openai_client, presentation.prompt)
+        presentation.markdown = openai_request(openai_client, presentation.prompt, save_chat=True, name="presentation")
 
         # Parse markdown
         _topic, contents = parse_md_outline(presentation.markdown)

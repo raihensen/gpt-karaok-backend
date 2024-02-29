@@ -2,6 +2,7 @@
 from abc import ABC
 from dataclasses import dataclass
 import functools
+import math
 import random
 from typing import Callable, Dict
 
@@ -122,10 +123,26 @@ def generate_prompts(presentations: list[Presentation],
         ImageQueryStyleFlag(name="PINK", definition={"de": "pink", "en": "pink"}),
     ]
     
-    ROLEPLAY = SpeakerStyleFlag(name="ROLEPLAY", definition={
-        "en": lambda: f"Role play: Act like a {random.choice(['super hero', 'Fitness coach', 'time traveller born 200 years ago', 'beauty influencer', 'news announcer'])}.",
-        "de": lambda: f"Rollenspiel: Du bist ein*e {random.choice(['Superheld*in', 'Fitnesstrainer*in', 'Zeitreisende*r von vor 200 Jahren', 'Beauty-Influencer*in', 'Nachrichtensprecher*in'])}.",
-    })
+    ROLEPLAY = [SpeakerStyleFlag(name="ROLEPLAY", definition={
+        "en": lambda: f"Role play: Act like a {role['en']}.",
+        "de": lambda: f"Rollenspiel: Du bist ein*e {role['de']}.",
+    }) for role in [
+        {"en": "super hero", "de": "Superheld*in"},
+        {"en": "way too motivated fitness coach", "de": "viel zu motivierter Fitnesscoach"},
+        {"en": "time traveller born 200 years ago", "de": "Zeitreisende*r von vor 200 Jahren"},
+        {"en": "news announcer", "de": "Nachrichtensprecher*in"},
+        {"en": "beauty influencer and sneakily include a hidden advertisement", "de": "Beauty-Influencer*in und baust eine versteckte Werbung ein"},
+    ]]
+    RANDOM_WORDS = [SpeakerStyleFlag(name="RANDOM_WORDS", definition={
+        "en": lambda: f"Use the word '{word['en']}' at least 3 times.",
+        "de": lambda: f"Verwende mindestens 3 Mal das Wort '{word['de']}'.",
+    }) for word in [
+        {"en": "zucchini", "de": "Zucchini"},
+        {"en": "tired", "de": "müde"},
+        {"en": "tired", "de": "müde"},
+        {"en": "tired", "de": "müde"},
+        {"en": "tired", "de": "müde"},
+    ]]
     SPEAKER_STYLE_FLAGS = [
         SpeakerStyleFlag(name="IMITATION", definition={
             "en": "Starting on Slide 2, try to imitate a celebrity of your choice.",
@@ -135,8 +152,24 @@ def generate_prompts(presentations: list[Presentation],
             "en": "On slide 3 you suddenly lose your voice but continue moving your mouth.",
             "de": "Verstumme auf Folie 3 plötzlich beim Reden, bewege den Mund aber weiter."
         }),
-        ROLEPLAY,
-        ROLEPLAY
+        SpeakerStyleFlag(name="ACCENT", definition={
+            "en": "Talk with a funny accent.",
+            "de": "Spreche mit einem witzigen Akzent/Dialekt."
+        }),
+        SpeakerStyleFlag(name="DRAWING", definition={
+            "en": "Use the drawing function on your slides to explain the concepts of your talk.",
+            "de": "Benutze die 'Zeichnen'-Funktion auf den Folien, um den Inhalt genauer zu erklären."
+        }),
+        SpeakerStyleFlag(name="STORYTELLING", definition={
+            "en": "Explain some slide by telling the audience made up stories/experiences from your own life.",
+            "de": "Erzähle erfundene Geschichten/Erfahrungen aus deinem eigenen Leben, um die Vortragsinhalte näherzubringen."
+        }),
+        SpeakerStyleFlag(name="MIMIC", definition={
+            "en": "Repeat any movements or sounds from the audience. If someone coughs, you cough, If they applaude, you applaude.",
+            "de": "Wiederhole jede Bewegung / jedes Geräusch aus dem Publikum. Wenn jemand hustest, hustest du. Wenn jemandd klatscht, klatschst du auch."
+        }),
+        *random.sample(ROLEPLAY, min(len(ROLEPLAY), round(.25 * len(presentations)))),
+        *random.sample(RANDOM_WORDS, min(len(RANDOM_WORDS), round(.25 * len(presentations)))),
     ]
 
     PROMPT = {
@@ -180,6 +213,7 @@ def generate_prompts(presentations: list[Presentation],
         if language not in PROMPT:
             raise ValueError(f"promt creation: Undefined language {language}.")
         presentation.prompt = PROMPT[language](topic=topic, prompt_additions=prompt_additions)
+        
         
         # print(speaker_name)
         # print(f"  Topic: {topic}")

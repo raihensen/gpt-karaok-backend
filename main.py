@@ -88,7 +88,7 @@ if __name__ == "__main__":
     # topics = ["Gemüselasagne", "Ludwigshafen am Rhein", "Weltwirtschaftskrise"]
     # topics = ["Mutterschutz", "Weihnachtsbaumkanone", "Falafel"]
 
-    # generate_presentations(speaker_names=["Raimund Hensen", "Barbara Muders"],
+    # generate_presentations(speaker_names=["Raimund Hensen", "Katharina Rothhöft", "Weihnachtsmann", "Osterhase", "Harry Potter"],
     #                       #  topic_pool=["Kiribati", "Buß- und Bettag", "Schoko-Weihnachtsmänner"],
     #                        topic_pool=topics,
     #                        images=True,
