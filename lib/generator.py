@@ -24,7 +24,6 @@ PPTX_TEMPLATES = []
 
 def generate_presentations(player_names: list[str],
                            language: str,
-                        #    speaking: list[int] = None,  # Indices of players that want to speak
                            players: list[dict] = None,  # Player data as received from API
                            topic_pool: list[str] = None,  # One pool for all topics (incl. wrong ones)
                            topic_groups: list[list[str]] = None,  # Groups of three to assign to random players. Don't assign to the author (index based)
@@ -33,10 +32,14 @@ def generate_presentations(player_names: list[str],
                            launch_all: bool = False):
     openai_client = OpenAI()
 
-    speaking = None  # TODO
-
     print("Assigning topics ...")
-    presentations = assign_topics(player_names=player_names, speaking=speaking, players=players, topic_pool=topic_pool, topic_groups=topic_groups)
+    presentations = assign_topics(player_names=player_names, players=players, topic_pool=topic_pool, topic_groups=topic_groups)
+    # for p in presentations:
+    #     print(p.player)
+    # print([p.player.get("isSpeaker", None) for p in presentations])
+    # return
+    if players:
+        presentations = [p for p in presentations if p.player.get("isSpeaker", True)]
 
     print("Generating prompts ...")
     generate_prompts(presentations=presentations,
@@ -49,7 +52,7 @@ def generate_presentations(player_names: list[str],
         print("Sending speaker instructions ...")
         for player, presentation in tqdm(zip(players, presentations)):
             url = f"{os.getenv('FRONTEND_URL')}/api/session/{player['sessionId']}/player/{player['id']}/setStyleInstruction"
-            res = requests.post(url, data={"styleInstruction": presentation.speaker_instruction if presentation.speaker_instruction else "-"})
+            res = requests.post(url, data={"styleInstruction": presentation.speaker_instruction} if presentation.speaker_instruction else {})
             if not res.ok:
                 res_data = res.json()
                 if "error" in res_data:
@@ -134,19 +137,12 @@ def launch_presentations(presentations: list[Presentation], launch_all: bool):
 
 
 def assign_topics(player_names: list[str],
-                  speaking: list[int] = None,
                   players: list[dict] = None,
                   topic_pool: list[str] = None,  # One pool for all topics (incl. wrong ones)
                   topic_groups: list[list[str]] = None):
     
     num_presentations = len(player_names)
     num_wrong_topics = 2
-
-    if not speaking:
-        speaking = range(num_presentations)
-
-    # TODO speaking
-    # For now, everybody speaks.
         
     m = 1 + num_wrong_topics
 
