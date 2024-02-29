@@ -9,9 +9,10 @@ class Presentation:
     speaker: str
     topic: str
     wrong_topics: list[str]
-    slide_style_flags: list[dict]
-    speaker_style_flags: list[dict]
-    speaker_instructions: list[str]
+    slide_style_flags: list[dict] = field(default_factory=lambda: [])
+    speaker_style_flags: list[dict] = field(default_factory=lambda: [])
+    speaker_instructions: list[str] = field(default_factory=lambda: [])
+    image_query_suffix: str | None = None
     prompt: str | None = None
     markdown: str | None = None
     contents: list[dict] = field(default_factory=lambda: [])
@@ -22,6 +23,7 @@ class Presentation:
     # DB connection
     session_id: str | None = None
     player_id: str | None = None
+    player: dict | None = None
     topic_id: str | None = None
 
 

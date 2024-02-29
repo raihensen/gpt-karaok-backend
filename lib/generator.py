@@ -1,10 +1,10 @@
 
-import json
 import subprocess
 from pathlib import Path
 from threading import Thread
 
 from openai import OpenAI
+from tqdm import tqdm
 
 from lib.presentation import Presentation
 from lib.prompts import generate_prompts
@@ -21,22 +21,25 @@ launch_queue = []
 PPTX_TEMPLATES = []
 
 
-def generate_presentations(speaker_names: list[str],
-                           topic_pool: list[str],
+def generate_presentations(player_names: list[str],
                            language: str,
+                        #    speaking: list[int] = None,  # Indices of players that want to speak
+                           players: list[dict] = None,  # Player data as received from API
+                           topic_pool: list[str] = None,  # One pool for all topics (incl. wrong ones)
+                           topic_groups: list[list[str]] = None,  # Groups of three to assign to random players. Don't assign to the author (index based)
                            images: bool = True,
                            launch_first: bool = False,
                            launch_all: bool = False):
     openai_client = OpenAI()
 
-    random.shuffle(speaker_names)
+    speaking = None  # TODO
+
+    print("Assigning topics ...")
+    presentations = assign_topics(player_names=player_names, speaking=speaking, players=players, topic_pool=topic_pool, topic_groups=topic_groups)
 
     print("Generating prompts ...")
-    presentations: list[Presentation]
-    presentations = generate_prompts(openai_client,
-                                     speaker_names=speaker_names,
-                                     topic_pool=topic_pool,
-                                     language=language)
+    generate_prompts(presentations=presentations,
+                     language=language)
     
     print(f"Generated prompts for {len(presentations)} presentation(s).")
 
@@ -52,12 +55,17 @@ def generate_presentations(speaker_names: list[str],
         # Image search
         presentation.images = []
         if images:
-            for j, slide in enumerate(contents):
-                query = preprocess_query(f"{presentation.topic} {slide['title']}", language)
+            print("Accessing google images and downloading images ...")
+            for j, slide in tqdm(enumerate(contents)):
+                query = f"{presentation.topic} {slide['title']}"
+                if presentation.image_query_suffix:
+                    query += " " + presentation.image_query_suffix
+                query = preprocess_query(query, language)
                 imgs, res, parameters = google_image_search(query=query, imgSize=None, safe="active", num_downloads=1)
                 
                 if "error" in res and res["error"]["code"] == 429:
                     print("Quota for google search exceeded. Disabling image search.")
+                    images = False
                     break
                 if not imgs:
                     # No search results, slide stays without image
@@ -113,3 +121,61 @@ def launch_presentations(presentations: list[Presentation], launch_all: bool):
             break
 
 
+def assign_topics(player_names: list[str],
+                  speaking: list[int] = None,
+                  players: list[dict] = None,
+                  topic_pool: list[str] = None,  # One pool for all topics (incl. wrong ones)
+                  topic_groups: list[list[str]] = None):
+    
+    num_presentations = len(player_names)
+    num_wrong_topics = 2
+
+    if not speaking:
+        speaking = range(num_presentations)
+
+    # TODO speaking
+    # For now, everybody speaks.
+        
+    m = 1 + num_wrong_topics
+
+    if topic_groups:
+        if any(len(g) < m for g in topic_groups):
+            raise ValueError(f"assign_topics: There are too small topic groups (need {m} topics per player)")
+        # Shuffle the topic groups s.t. nobody gets their own topics.
+        topic_group_sample = random_derangement(topic_groups)
+        # Shuffle and limit the topics within the groups
+        topic_group_sample = [random.sample(g, m) for g in topic_group_sample]
+
+        topics = [g[0] for g in topic_group_sample]
+        wrong_topicss = [g[1:] for g in topic_group_sample]
+    
+    elif topic_pool:
+        # Shuffle the topics individually s.t. nobody gets their own topics.
+        topic_sample = random_chunk_derangement(topic_pool, m)
+        topics = [t for i, t in enumerate(topic_sample) if i % m == 0]
+        wrong_topicss = [topic_sample[i * m + 1:(i + 1) * m] if num_wrong_topics else [] for i in range(num_presentations)]
+
+    presentations = [Presentation(speaker=speaker,
+                                  topic=topic,
+                                  wrong_topics=wrong_topics) for speaker, topic, wrong_topics in zip(player_names, topics, wrong_topicss)]
+    if players:
+        for player, presentation in zip(players, presentations):
+            presentation.player = player
+            presentation.player_id = player["id"]
+            presentation.session_id = player["sessionId"]
+    
+    # Shuffle speakers
+    random.shuffle(presentations)
+    return presentations
+
+
+if __name__ == "__main__":
+    
+    # Test assign_topics()
+    speakers = ["A", "B", "C", "D"]
+    topic_groups = [[f"{p}{i}" for i in range(1, 4)] for p in speakers]
+    topic_pool = None
+
+    presentations = assign_topics(player_names=speakers, topic_pool=topic_pool, topic_groups=topic_groups)
+    for p in presentations:
+        print(p.speaker, p.topic, p.wrong_topics)

@@ -53,14 +53,16 @@ class GoogleImage:
 
 
 def preprocess_query(query: str, language: str):
-    words = list(set(query.split(" ")))
+    # words = list(set(query.split(" ")))
     # words = [w for w in words if w not in query_stopwords[language]]
-    return " ".join(words)
+    # return " ".join(words)
+    return query
 
 
 # TODO types
 def google_image_search(query: str,
                         save_results: bool = False,
+                        output: bool = True,
                         num_downloads: int = 10,
                         num: int = 10,
                         imgSize="large",
@@ -90,13 +92,15 @@ def google_image_search(query: str,
     if not uri_validator(url):
         raise ValueError(f"Invalid URL: {url}")
     
-    print(f"Accessing Google image search ...")
+    if output:
+        print(f"Accessing Google image search ...")
     res = requests.get(url)
 
     if not res.ok:
         res_data = res.json()
         if "error" in res_data:
-            print(f"Error {res.status_code}: {res_data['error']['message']}")
+            if output:
+                print(f"Error {res.status_code}: {res_data['error']['message']}")
         return [], res_data, parameters
         # print(json.dumps(res.json(), indent=2))
         # raise ValueError(f"Request failed (status code {res.status_code})")
@@ -105,10 +109,12 @@ def google_image_search(query: str,
     if save_results:
         path = SEARCH_RESULTS_DIR / f"google-result-{NOW()}-{ESCAPE_PATH(query)}.json"
         json.dump(res, open(path, "w", encoding="utf8"), indent=2)
-        print(f"Search results for query '{query}'\nSaved to {path}.")
+        if output:
+            print(f"Search results for query '{query}'\nSaved to {path}.")
 
     if "items" not in res:
-        print(f"No images found.")
+        if output:
+            print(f"No images found.")
         return [], res, parameters
 
     # Create Image objects
@@ -143,8 +149,9 @@ def google_image_search(query: str,
             break
     
     imgs = [img for img in imgs if img.downloaded]
-    print(f"Downloaded {len(imgs)} images from Google.")
-    # print(f"Downloaded {len(imgs)} images for the query '{query}'.")
+    if output:
+        print(f"Downloaded {len(imgs)} images from Google.")
+        # print(f"Downloaded {len(imgs)} images for the query '{query}'.")
     return imgs, res, parameters
 
 

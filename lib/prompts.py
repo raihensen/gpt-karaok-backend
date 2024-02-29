@@ -1,6 +1,9 @@
 
+from abc import ABC
+from dataclasses import dataclass
+import functools
 import random
-from typing import Callable
+from typing import Callable, Dict
 
 from openai import OpenAI
 
@@ -9,16 +12,43 @@ from lib.config import *
 from lib.utils import *
 
 
-def generate_prompts(openai_client,
-                     speaker_names,
-                     topic_pool,
-                     language,
+@dataclass
+class StyleFlag:
+    name: str
+    definition: Dict[str, str | Callable[[], str]]
+
+    def process(self, language: str):
+        p = self.definition.get(language, None)
+        if p is None:
+            raise ValueError(f"{type(self).__name__} '{self.name}': Undefined language {language}.")
+        if isinstance(p, Callable):
+            p = p()
+        if not isinstance(p, str):
+            raise ValueError(f"{type(self).__name__} '{self.name}': Result is not a string.")
+        return p
+
+@dataclass
+class SlideStyleFlag(StyleFlag):
+    pass
+@dataclass
+class PromptStyleFlag(SlideStyleFlag):
+    pass
+@dataclass
+class ImageQueryStyleFlag(SlideStyleFlag):
+    pass
+@dataclass
+class SpeakerStyleFlag(StyleFlag):
+    pass
+
+
+def generate_prompts(presentations: list[Presentation],
+                     language: str,
                      num_slides=5,
                      num_bullets_min=4,
                      num_bullets_max=6,
                      num_wrong_topics=2):
 
-    num_presentations = len(speaker_names)
+    num_presentations = len(presentations)
     slide_numbers = range(1, num_slides + 1)
 
     def random_slide_number(start=None, end=None):
@@ -36,9 +66,9 @@ def generate_prompts(openai_client,
 
     def prompt_random_slide_numbers(lang, k=None, numbers=None, sort=True):
         if k is not None and numbers is None:
-          numbers = random_slide_numbers(k, sort=sort)
-          if k == 1:
-              return numbers[0]
+            numbers = random_slide_numbers(k, sort=sort)
+            if k == 1:
+                return numbers[0]
         k = len(numbers)
         if lang == "de":
             return ("Folien " if k > 1 else "Folie ") + ", ".join([str(i) for i in numbers[:-1]]) + f" und {numbers[-1]}"
@@ -46,15 +76,15 @@ def generate_prompts(openai_client,
             return ("slides " if k > 1 else "slide ") + ", ".join([str(i) for i in numbers[:-1]]) + f" and {numbers[-1]}"
         raise ValueError(f"prompt_random_slide_numbers: Undefined language {lang}.")
 
-    def prompt_foreign_language():
-        a = 2
-        b = 2
-        ix = random_slide_numbers(a, sort=True)
-        languages = random.sample(["nl", "sv", "es", "tr", "sk", "jp"], a)
-        return {
-            "de": " ".join([f"Schreibe auf Folie {i} bitte {b} der Stichpunkte auf der Sprache mit dem ISO-Code '{lang}'." for i, lang in zip(ix, languages)]) + " Use the latin alphabet only.",
-            "en": " ".join([f"On slide {i}, write {b} of the bullets in the language with ISO code '{lang}'." for i, lang in zip(ix, languages)]) + " Benutze nur das lateinische Alphabet."
-        }
+    def prompt_foreign_language(current_language: str):
+        i = random_slide_number(start=2, end=num_slides)
+        if current_language == "de":
+            lang1 = random.choice(["Niederländisch", "Schwedisch", "Spanisch", "Türkisch", "Slowakisch", "Japanisch"])
+            return f"Schreibe Folie {i} bitte auf {lang1}. Benutze nur das lateinische Alphabet."
+        if current_language == "en":
+            lang1 = random.choice(["Dutch", "Swedish", "Spanish", "Turkish", "Slovak", "Japanese"])
+            return f"Write slide {i} in the {lang1} language. Use the latin alphabet only."
+        raise ValueError(f"prompt_foreign_language: Undefined language {current_language}.")
 
     def prompt_wrong_topic(wrong_topics):
         b = 2
@@ -65,138 +95,101 @@ def generate_prompts(openai_client,
         }
 
 
-    SLIDE_STYLE_FLAGS = [{
-        "flag": "TECHNICAL",
-        "target": "prompt",
-        "prompt": {
+    SLIDE_STYLE_FLAGS = [
+        PromptStyleFlag(name="TECHNICAL", definition={
             "de": "Verwende bitte viele Fachbegriffe, die das Publikum eventuell nicht versteht.",
             "en": "Please make the presentation use many technical terms that the audience might not understand."
-        }
-    }, {
-        "flag": "FOREIGN_LANGUAGE",
-        "target": "prompt",
-        "prompt": prompt_foreign_language
-    }, {
-        "flag": "POETIC",
-        "target": "prompt",
-        "prompt": {
+        }),
+        PromptStyleFlag(name="FOREIGN_LANGUAGE", definition={
+            "de": functools.partial(prompt_foreign_language, current_language=language),
+            "en": functools.partial(prompt_foreign_language, current_language=language),
+        }),
+        PromptStyleFlag(name="POETIC", definition={
             "de": "Ab Folie 2, versuche dass die Stichpunkte Paarreime bilden.",
             "en": "Beginning on slide 2, try to make the bullet points rhyme (adjacent rhymes)."
-        }
-    }, {
-        "flag": "EXCESSIVE_INDENTS",
-        "target": "prompt",
-        "prompt": {
+        }),
+        PromptStyleFlag(name="POETIC", definition={
+            "de": "Ab Folie 2, versuche dass die Stichpunkte Paarreime bilden.",
+            "en": "Beginning on slide 2, try to make the bullet points rhyme (adjacent rhymes)."
+        }),
+        PromptStyleFlag(name="EXCESSIVE_INDENTS", definition={
             "de": "Rücke die Stichpunkte unnötig ein, bis zu 4 Level. Die Gruppierung soll keinen Sinn ergeben und optisch keinem wiederkehrenden Muster folgen.",
             "en": "Please indent the bullet points excessively, up to 4 levels. The grouping and indent level should not make any sense."
-        }
-    }, {
-        "flag": "KARAOKE",
-        "target": "prompt",
-        "prompt": lambda: {
-            "de": f"Replace the bullets of slide {random_slide_number(start=3)} by a few lines of lyrics of a very famous song that is good to sing along.",
-            "en": f"Ersetze die Stichpunkte von Folie {random_slide_number(start=3)} durch ein paar Zeilen eines sehr bekannten Songs, zu dem man gut mitsingen kann."
-        }
-    }, {
-        "flag": "MEMES",
-        "target": "image_query",
-        "query_suffix": {"de": "meme", "en": "meme"}
-    }]
-
-    SPEAKER_STYLE_FLAGS = [{
-        "flag": "IMITATION",
-        "target": "speaker",
-        "instruction": {
-            "en": "Try to imitate a celebrity of your choice.",
+        }),
+        PromptStyleFlag(name="EXCESSIVE_INDENTS", definition={
+            "de": lambda: f"Ersetze die Stichpunkte von Folie {random_slide_number(start=3)} durch ein paar Zeilen eines sehr bekannten Songs, zu dem man gut mitsingen kann.",
+            "en": lambda: f"Replace the bullets of slide {random_slide_number(start=3)} by a few lines of lyrics of a very famous song that is good to sing along.",
+        }),
+        ImageQueryStyleFlag(name="MEMES", definition={"de": "meme", "en": "meme"}),
+    ]
+    
+    SPEAKER_STYLE_FLAGS = [
+        SpeakerStyleFlag(name="IMITATION", definition={
+            "en": "Starting on Slide 2, try to imitate a celebrity of your choice.",
             "de": "Fange ab Folie 2 an, beim Reden einen Promi deiner Wahl zu imitieren."
-        }
-    }, {
-        "flag": "ROLEPLAY",
-        "target": "speaker",
-        "instruction": lambda: {
-            "en": f"Role play: Act like a {random.choice(['super hero', 'time traveller born 200 years ago', 'beauty influencer', 'news announcer'])}.",
-            "de": f"Rollenspiel: Du bist ein*e {random.choice(['Superheld*in', 'Zeitreisende*r von vor 200 Jahren', 'Beauty-Influencer*in', 'Nachrichtensprecher*in'])}.",
-        }
-    }]
+        }),
+        SpeakerStyleFlag(name="ROLEPLAY", definition={
+            "en": lambda: f"Role play: Act like a {random.choice(['super hero', 'time traveller born 200 years ago', 'beauty influencer', 'news announcer'])}.",
+            "de": lambda: f"Rollenspiel: Du bist ein*e {random.choice(['Superheld*in', 'Zeitreisende*r von vor 200 Jahren', 'Beauty-Influencer*in', 'Nachrichtensprecher*in'])}.",
+        }),
+    ]
 
-    def make_prompt(topic, prompt_additions):
-        return {
-            "de": f'''Generiere aus Stichpunkten bestehende Inhalte für PowerPoint-Folien zum Thema "{topic}", im Markdown-Format. Die Präsentation soll {num_slides} Folien enthalten und pro Folie {f"{num_bullets_min}-{num_bullets_max}" if num_bullets_min != num_bullets_max else num_bullets_min} Stichpunkte. Der Präsentationsstil soll locker, aber dennoch informativ sein.
-    {prompt_additions}
-    Baue 2-3 Witze in den Inhalt ein.
-    Formatiere die Antwort im Markdown-Format! Verwende Überschrift 1 für den Präsentationstitel, Überschrift 2 für Folientitel, und Aufzählungen für die Stichpunkte. Die Antwort soll ausschließlich Markdown sein, füge keine weiteren Erklärungen hinzu!'''
-        }
+    PROMPT = {
+        "de": lambda topic, prompt_additions: "\n".join([
+            f'Generiere aus Stichpunkten bestehende Inhalte für PowerPoint-Folien zum Thema "{topic}", im Markdown-Format.',
+            f'Die Präsentation soll {num_slides} Folien enthalten und pro Folie {f"{num_bullets_min}-{num_bullets_max}" if num_bullets_min != num_bullets_max else num_bullets_min} Stichpunkte.',
+            'Der Präsentationsstil soll locker, aber dennoch informativ sein.',
+            f'{prompt_additions}',
+            'Baue 2-3 Witze in den Inhalt ein.',
+            'Formatiere die Antwort im Markdown-Format! Verwende Überschrift 1 für den Präsentationstitel, Überschrift 2 für Folientitel, und Aufzählungen für die Stichpunkte. Die Antwort soll ausschließlich Markdown sein, füge keine weiteren Erklärungen hinzu!'
+        ])
+    }
 
     slide_style_flags = sample_minimal_repitions(SLIDE_STYLE_FLAGS, k=num_presentations)
     speaker_style_flags = sample_minimal_repitions(SPEAKER_STYLE_FLAGS, k=num_presentations)
-    m = 1 + num_wrong_topics
-    topic_sample = sample_minimal_repitions(topic_pool, k=num_presentations * m)
-    topics = [t for i, t in enumerate(topic_sample) if i % m == 0]
-    wrong_topicss = [topic_sample[i * m + 1:(i + 1) * m] if num_wrong_topics else [] for i in range(num_presentations)]
 
-    presentations = []
-    for topic, wrong_topics, speaker_name, slide_style_flag, speaker_style_flag in zip(topics,
-                                                                                       wrong_topicss,
-                                                                                       speaker_names,
-                                                                                       slide_style_flags,
-                                                                                       speaker_style_flags):
+    for presentation, slide_style_flag, speaker_style_flag in zip(presentations,
+                                                                  slide_style_flags,
+                                                                  speaker_style_flags):
         
+        topic, wrong_topics, speaker_name = presentation.topic, presentation.wrong_topics, presentation.speaker
+        presentation.slide_style_flags = [slide_style_flag] if slide_style_flag else []
+        presentation.speaker_style_flags = [speaker_style_flag] if speaker_style_flag else []
+
         # Apply style flags
         slide_style_prompt = None
         slide_wrong_topic_prompt = None
         image_query_suffix = None
-        if slide_style_flag["target"] == "prompt":
-            slide_style_prompt = slide_style_flag["prompt"]
-            if isinstance(slide_style_prompt, Callable):
-                slide_style_prompt = slide_style_prompt()
-            slide_style_prompt = slide_style_prompt[language]
-            if not isinstance(slide_style_prompt, str):
-                slide_style_prompt = None
-        elif slide_style_flag["target"] == "image_query":
-            image_query_suffix = slide_style_flag["query_suffix"]
-            if isinstance(image_query_suffix, Callable):
-                image_query_suffix = image_query_suffix()
-            image_query_suffix = image_query_suffix[language]
-            if not isinstance(image_query_suffix, str):
-                image_query_suffix = None
-        speaker_style_instruction = speaker_style_flag["instruction"]
-        if isinstance(speaker_style_instruction, Callable):
-            speaker_style_instruction = speaker_style_instruction()
-        speaker_style_instruction = speaker_style_instruction[language]
-        if not isinstance(speaker_style_instruction, str):
-            speaker_style_instruction = None
 
+        if isinstance(slide_style_flag, PromptStyleFlag):
+            slide_style_prompt = slide_style_flag.process(language=language)
+        if isinstance(slide_style_flag, ImageQueryStyleFlag):
+            image_query_suffix = slide_style_flag.process(language=language)
         if wrong_topics:
             slide_wrong_topic_prompt = prompt_wrong_topic(wrong_topics)[language]
         
+        if isinstance(speaker_style_flag, SpeakerStyleFlag):
+            presentation.speaker_style_instruction = speaker_style_flag.process(language=language)
+
         prompt_additions = "\n".join([p for p in [slide_wrong_topic_prompt, slide_style_prompt] if p is not None])
-        prompt = make_prompt(topic, prompt_additions)[language]
-        # print(prompt)
-
-        presentations.append(Presentation(topic=topic,
-                                          speaker=speaker_name,
-                                          wrong_topics=wrong_topics,
-                                          slide_style_flags=[slide_style_flag] if slide_style_flags else [],
-                                          speaker_style_flags=[speaker_style_flags] if speaker_style_flags else [],
-                                          speaker_instructions=[speaker_style_instruction] if speaker_style_instruction else [],
-                                          prompt=prompt))
-
-        # presentations.
+        if language not in PROMPT:
+            raise ValueError(f"promt creation: Undefined language {language}.")
+        presentation.prompt = PROMPT[language](topic=topic, prompt_additions=prompt_additions)
         
-        # print(speaker_name)
-        # print(f"  Topic: {topic}")
-        # print("  Prompt:\n" + indent(prompt, 4))
-        # print()
-        # if wrong_topics:
-        #     print(f"  Wrong topics: {', '.join(wrong_topics)}")
-        #     print(f"  Wrong topics prompt: {slide_wrong_topic_prompt}")
-        # if slide_style_prompt:
-        #     print("  Slide style prompt: " + slide_style_prompt)
-        # if image_query_suffix:
-        #     print("  Image query suffix: " + image_query_suffix)
-        # if speaker_style_instruction:
-        #     print("  Speaker style instruction: " + speaker_style_instruction)
-    return presentations
+        print(speaker_name)
+        print(f"  Topic: {topic}")
+        print("  Prompt:\n" + indent(presentation.prompt, 4))
+        print()
+        if wrong_topics:
+            print(f"  Wrong topics: {', '.join(wrong_topics)}")
+            print(f"  Wrong topics prompt: {slide_wrong_topic_prompt}")
+        if slide_style_prompt:
+            print("  Slide style prompt: " + slide_style_prompt)
+        if image_query_suffix:
+            print("  Image query suffix: " + image_query_suffix)
+        if presentation.speaker_style_instruction:
+            print("  Speaker style instruction: " + presentation.speaker_style_instruction)
+
 
 if __name__ == "__main__":
     
@@ -206,12 +199,6 @@ if __name__ == "__main__":
 
     # tt = ["Gemüselasagne", "Ludwigshafen am Rhein", "Weltwirtschaftskrise"]
     tt = ["Kiribati", "Buß- und Bettag", "Schoko-Weihnachtsmänner"]
-
-    openai_client = OpenAI()
-    generate_prompts(openai_client,
-                     speaker_names=["Raimund Hensen"],
-                     #  topic_pool=json.load(open(TEMPLATE_DIR / "topics-50-2.json")), language="de")
-                     topic_pool=tt, language="de")
 
 
 
