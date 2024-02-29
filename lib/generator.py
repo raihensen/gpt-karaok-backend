@@ -4,6 +4,7 @@ from pathlib import Path
 from threading import Thread
 
 from openai import OpenAI
+import requests
 from tqdm import tqdm
 
 from lib.presentation import Presentation
@@ -42,6 +43,24 @@ def generate_presentations(player_names: list[str],
                      language=language)
     
     print(f"Generated prompts for {len(presentations)} presentation(s).")
+
+    # Send speaker instructions to API
+    if players:
+        print("Sending speaker instructions ...")
+        for player, presentation in tqdm(zip(players, presentations)):
+            url = f"{os.getenv('FRONTEND_URL')}/api/session/{player['sessionId']}/player/{player['id']}/setStyleInstruction"
+            res = requests.post(url, data={"styleInstruction": presentation.speaker_instruction if presentation.speaker_instruction else "-"})
+            if not res.ok:
+                res_data = res.json()
+                if "error" in res_data:
+                    print(f"Error {res.status_code}: {res_data['error']['message']}")
+
+        
+    # Sample random template
+    template_files = [f.name for f in os.scandir(PPTX_TEMPLATE_DIR) if f.is_file()]
+    templates = sample_minimal_repitions(template_files, len(presentations))
+    for template, presentation in zip(templates, presentations):
+        presentation.pptx_template_path = PPTX_TEMPLATE_DIR / template
 
     for i, presentation in enumerate(presentations):
         
@@ -82,18 +101,15 @@ def generate_presentations(player_names: list[str],
                     },
                     "all_images": imgs
                 })
-        
-        # Select random template
-        template_files = [f.name for f in os.scandir(PPTX_TEMPLATE_DIR) if f.is_file()]
-        presentation.pptx_template_path = PPTX_TEMPLATE_DIR / random.choice(template_files)
 
         # Generate pptx file
-        pptx_path = make_pptx(pptx=presentation.pptx_template_path,
+        pptx_path = make_pptx(pptx_template_path=presentation.pptx_template_path,
                               topic=presentation.topic,
                               speaker=presentation.speaker,
                               contents=contents)
         presentation.pptx_path = pptx_path
-        print(f"Saved .pptx file to {pptx_path}.")
+        print(f"Saved .pptx file.")
+        # print(f"Saved .pptx file to {pptx_path}.")
 
         launch_queue.append(presentation)
 
@@ -108,15 +124,11 @@ def generate_presentations(player_names: list[str],
     
 
 def launch_presentations(presentations: list[Presentation], launch_all: bool):
-    ppt_exe = Path(os.environ.get('POWERPOINT_EXE_PATH'))
-
     for i, presentation in enumerate(presentations):
         # Launch slideshow in PowerPoint app
         assert presentation.pptx_path is not None, f"Presentation #{i + 1} ({presentation.speaker}) cannot be launched."
-        cmd = f"{ppt_exe} /s \"{presentation.pptx_path}\""
         print(f"Launching presentation #{i + 1} (Speaker: {presentation.speaker}) ...")
-        subprocess.run((cmd))
-
+        show_presentation_blocking(presentation.pptx_path)
         if not launch_all:
             break
 

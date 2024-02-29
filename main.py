@@ -8,6 +8,9 @@ import requests
 import time
 
 from lib.generator import assign_topics, generate_presentations
+from lib.google_images import GoogleImage, google_image_search
+from lib.markdown import parse_md_outline
+from lib.pptx_factory import make_pptx
 from lib.utils import *
 from lib.config import *
 from lib.types import *
@@ -66,7 +69,8 @@ def generate_from_api(session: dict):
 
 
 if __name__ == "__main__":
-    
+
+    # Init communication with API
     parser = argparse.ArgumentParser("main.py")
     parser.add_argument("session_id", help="The ID of the session to be fetched via the API.", type=str)
     args = parser.parse_args()

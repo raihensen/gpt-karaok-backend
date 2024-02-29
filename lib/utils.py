@@ -1,11 +1,19 @@
 from __future__ import annotations
 
 import random
+import subprocess
 import urllib.parse
+
+from lib.config import *
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from lib.presentation import Presentation
+
+
+def show_presentation_blocking(pptx_path):
+    cmd = f"{PPT_EXE} /s \"{pptx_path}\""
+    subprocess.run((cmd))
 
 
 # from https://stackoverflow.com/a/38020041

@@ -108,10 +108,6 @@ def generate_prompts(presentations: list[Presentation],
             "de": "Ab Folie 2, versuche dass die Stichpunkte Paarreime bilden.",
             "en": "Beginning on slide 2, try to make the bullet points rhyme (adjacent rhymes)."
         }),
-        PromptStyleFlag(name="POETIC", definition={
-            "de": "Ab Folie 2, versuche dass die Stichpunkte Paarreime bilden.",
-            "en": "Beginning on slide 2, try to make the bullet points rhyme (adjacent rhymes)."
-        }),
         PromptStyleFlag(name="EXCESSIVE_INDENTS", definition={
             "de": "Rücke die Stichpunkte unnötig ein, bis zu 4 Level. Die Gruppierung soll keinen Sinn ergeben und optisch keinem wiederkehrenden Muster folgen.",
             "en": "Please indent the bullet points excessively, up to 4 levels. The grouping and indent level should not make any sense."
@@ -121,6 +117,9 @@ def generate_prompts(presentations: list[Presentation],
             "en": lambda: f"Replace the bullets of slide {random_slide_number(start=3)} by a few lines of lyrics of a very famous song that is good to sing along.",
         }),
         ImageQueryStyleFlag(name="MEMES", definition={"de": "meme", "en": "meme"}),
+        ImageQueryStyleFlag(name="CHINA", definition={"de": "china", "en": "china"}),
+        ImageQueryStyleFlag(name="UGLY", definition={"de": "hässlich", "en": "ugly"}),
+        ImageQueryStyleFlag(name="PINK", definition={"de": "pink", "en": "pink"}),
     ]
     
     SPEAKER_STYLE_FLAGS = [
@@ -152,7 +151,7 @@ def generate_prompts(presentations: list[Presentation],
                                                                   slide_style_flags,
                                                                   speaker_style_flags):
         
-        topic, wrong_topics, speaker_name = presentation.topic, presentation.wrong_topics, presentation.speaker
+        topic, wrong_topics = presentation.topic, presentation.wrong_topics
         presentation.slide_style_flags = [slide_style_flag] if slide_style_flag else []
         presentation.speaker_style_flags = [speaker_style_flag] if speaker_style_flag else []
 
@@ -169,26 +168,26 @@ def generate_prompts(presentations: list[Presentation],
             slide_wrong_topic_prompt = prompt_wrong_topic(wrong_topics)[language]
         
         if isinstance(speaker_style_flag, SpeakerStyleFlag):
-            presentation.speaker_style_instruction = speaker_style_flag.process(language=language)
+            presentation.speaker_instruction = speaker_style_flag.process(language=language)
 
         prompt_additions = "\n".join([p for p in [slide_wrong_topic_prompt, slide_style_prompt] if p is not None])
         if language not in PROMPT:
             raise ValueError(f"promt creation: Undefined language {language}.")
         presentation.prompt = PROMPT[language](topic=topic, prompt_additions=prompt_additions)
         
-        print(speaker_name)
-        print(f"  Topic: {topic}")
-        print("  Prompt:\n" + indent(presentation.prompt, 4))
-        print()
-        if wrong_topics:
-            print(f"  Wrong topics: {', '.join(wrong_topics)}")
-            print(f"  Wrong topics prompt: {slide_wrong_topic_prompt}")
-        if slide_style_prompt:
-            print("  Slide style prompt: " + slide_style_prompt)
-        if image_query_suffix:
-            print("  Image query suffix: " + image_query_suffix)
-        if presentation.speaker_style_instruction:
-            print("  Speaker style instruction: " + presentation.speaker_style_instruction)
+        # print(speaker_name)
+        # print(f"  Topic: {topic}")
+        # print("  Prompt:\n" + indent(presentation.prompt, 4))
+        # print()
+        # if wrong_topics:
+        #     print(f"  Wrong topics: {', '.join(wrong_topics)}")
+        #     print(f"  Wrong topics prompt: {slide_wrong_topic_prompt}")
+        # if slide_style_prompt:
+        #     print("  Slide style prompt: " + slide_style_prompt)
+        # if image_query_suffix:
+        #     print("  Image query suffix: " + image_query_suffix)
+        # if presentation.speaker_instruction:
+        #     print("  Speaker style instruction: " + presentation.speaker_instruction)
 
 
 if __name__ == "__main__":

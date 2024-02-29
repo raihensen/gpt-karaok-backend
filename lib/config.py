@@ -25,3 +25,5 @@ ESCAPE_PATH = lambda q: re.sub(r"[^A-Za-z0-9]", "", q)
 
 LANGUAGES = ["de", "en"]
 
+PPT_EXE = Path(os.environ.get('POWERPOINT_EXE_PATH'))
+

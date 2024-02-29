@@ -11,7 +11,7 @@ class Presentation:
     wrong_topics: list[str]
     slide_style_flags: list[dict] = field(default_factory=lambda: [])
     speaker_style_flags: list[dict] = field(default_factory=lambda: [])
-    speaker_instructions: list[str] = field(default_factory=lambda: [])
+    speaker_instruction: list[str] = field(default_factory=lambda: [])
     image_query_suffix: str | None = None
     prompt: str | None = None
     markdown: str | None = None

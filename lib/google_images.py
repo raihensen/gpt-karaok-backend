@@ -29,6 +29,8 @@ class GoogleImage:
     query: str = None
     ext: str = None
 
+    # TODO show source in pptx
+
     downloaded: bool = False
     local_path: Path = None
 
@@ -62,7 +64,7 @@ def preprocess_query(query: str, language: str):
 # TODO types
 def google_image_search(query: str,
                         save_results: bool = False,
-                        output: bool = True,
+                        output: bool = False,
                         num_downloads: int = 10,
                         num: int = 10,
                         imgSize="large",
@@ -71,9 +73,7 @@ def google_image_search(query: str,
                         hl: str = "de",
                         safe: Literal["off", "active"] = "off"):
     
-    if num_downloads is not None and num is None:
-        num = min(num, num_downloads)
-    num = min(10, num)
+    num = min(num_downloads, num)
 
     parameters = {
         "key": os.getenv("GOOGLE_PSE_API_KEY"),
