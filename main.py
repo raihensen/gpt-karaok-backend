@@ -62,7 +62,8 @@ def generate_from_api(session: dict):
     generate_presentations(player_names=player_names,
                            players=players,
                            topic_groups=topic_groups,
-                           images=True,
+                           openai_images=True,
+                           google_images=True,
                            launch_first=True,
                            launch_all=True,
                            language="de")

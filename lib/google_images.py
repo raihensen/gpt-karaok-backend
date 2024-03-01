@@ -12,31 +12,46 @@ import shutil
 from lib.utils import *
 from lib.config import *
 
+@dataclass
+class Image:
+    width: int
+    height: int
+    local_path: Path = None
+    ext: str = None
+    title: str = None
+
+    def __post_init__(self):
+        pass
+
+@dataclass
+class OpenAiImage:
+    def __post_init__(self):
+        super().__post_init__()
+        self.ext = ".png"
 
 @dataclass
 class GoogleImage:
-    result_index: int
+    width: int
+    height: int
     url: str
+    result_index: int
     context_url: str
     accessed: datetime
     request: dict
     search_parameters: dict
-    width: int
-    height: int
     byte_size: int
     file_format: str
+    local_path: Path = None
+    ext: str = None
     title: str = None
     query: str = None
-    ext: str = None
-
-    # TODO show source in pptx
 
     downloaded: bool = False
-    local_path: Path = None
 
     def __post_init__(self):
-        self.query = self.search_parameters["q"]
+        # super().__post_init__()
         self.ext = Path(self.url).suffix
+        self.query = self.search_parameters["q"]
 
     def download(self) -> bool:
         path = IMG_DIR / f"google-img-{self.accessed.strftime(STRFTIME_FULL)}-{(self.result_index+1):03}-{str(uuid.uuid4())[:4]}-{ESCAPE_PATH(self.query)}{self.ext}"

@@ -91,8 +91,8 @@ def generate_prompts(presentations: list[Presentation],
         b = 2
         ix = random_slide_numbers(k=len(wrong_topics))
         return {
-            "de": f'Bitte sorge dafür, dass die {prompt_random_slide_numbers(lang="de", numbers=ix)} je {b} Stichpunkt{"e" if b > 1 else ""} mit komplett falschen Fakten enthalten, die das Thema der Präsentation mit jeweils einem anderen Thema verbinden. Diese Themen sind: ' + ", ".join([f"Folie {i}: \"{t}\"" for i, t in zip(ix, wrong_topics)]) + ".",
-            "en": f'Please make {prompt_random_slide_numbers(lang="en", numbers=ix)} contain {b} bullet point{"s" if b > 1 else ""} with made up facts, somehow connecting the presentation topic with another topic. These topics are: ' + ", ".join([f"slide {i}: \"{t}\"" for i, t in zip(ix, wrong_topics)]) + "."
+            "de": f'Bitte sorge dafür, dass die {prompt_random_slide_numbers(lang="de", numbers=ix)} je {b} Stichpunkt{"e" if b > 1 else ""} mit komplett falschen Fakten enthalten, die das Thema der Präsentation mit jeweils einem anderen Thema verbinden. Diese Themen sind: ' + ", ".join([f"Folie {i}: \"{t}\"" for i, t in zip(ix, wrong_topics)]) + ". Mache NICHT erkenntlich, dass es sich um falsche Fakten handelt.",
+            "en": f'Please make {prompt_random_slide_numbers(lang="en", numbers=ix)} contain {b} bullet point{"s" if b > 1 else ""} with made up facts, somehow connecting the presentation topic with another topic. These topics are: ' + ", ".join([f"slide {i}: \"{t}\"" for i, t in zip(ix, wrong_topics)]) + ". Do NOT write that these facts are not true."
         }
 
 

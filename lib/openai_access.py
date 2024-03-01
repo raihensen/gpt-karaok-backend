@@ -1,6 +1,8 @@
 
+from dataclasses import dataclass
 import json
 import uuid
+import base64
 from openai import OpenAI, OpenAIError
 
 from lib.config import *
@@ -17,14 +19,50 @@ def openai_request(client, prompt, save_chat: bool = True, name: str = None):
             path = CHATS_DIR / f"openai-chat-{NOW()}{'-' + name if name else ''}-{uuid.uuid4()}.json"
             json.dump({
                 "prompt": prompt,
-                "answer": answer
+                "answer": answer,
+                "usage": completion.usage.dict()
             }, open(path, "w", encoding="utf8"), indent=2)
 
         return answer
-        # output = ""
-        # for chunk in stream:
-        #     if chunk.choices[0].delta.content is not None:
-        #         print(chunk.choices[0].delta.content, end="")
+
+    except OpenAIError as e:
+        print(f"Error (status code {e.status_code}):")
+        print(f'Message: "{e.message}"')
+
+
+@dataclass
+class OpenAiImage:
+    width: int
+    height: int
+    local_path: Path
+
+
+def openai_image_request(client: OpenAI, topic: str, prompt: str, save_chat: bool = True, name: str = None):
+    
+    try:
+        response = client.images.generate(
+            model="dall-e-3",
+            prompt=prompt,
+            size="1024x1024",
+            quality="standard",
+            n=1,
+            response_format="b64_json",
+        )
+
+        img_path = IMG_DIR / f"openai-img-{datetime.now().strftime(STRFTIME_FULL)}-{str(uuid.uuid4())[:4]}-{ESCAPE_PATH(topic)}.png"
+        image_data = base64.b64decode(response.data[0].b64_json)
+        with open(img_path, mode="wb") as png:
+            png.write(image_data)
+
+        if save_chat:
+            path = CHATS_DIR / f"openai-chat-{NOW()}{'-' + name if name else ''}-image-{uuid.uuid4()}.json"
+            json.dump({
+                "prompt": prompt,
+                "revised_prompt": response.data[0].revised_prompt,
+                "local_path": str(img_path)
+            }, open(path, "w", encoding="utf8"), indent=2)
+
+        return OpenAiImage(local_path=img_path, width=1024, height=1024)
 
     except OpenAIError as e:
         print(f"Error (status code {e.status_code}):")
